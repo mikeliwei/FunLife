@@ -1,0 +1,8 @@
+hmdp:
+  database:
+    username: root
+    password: Ylw20060413@
+  redis:
+    host: localhost
+    port: 6379
+
