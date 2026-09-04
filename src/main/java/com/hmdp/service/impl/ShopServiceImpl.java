@@ -14,6 +14,7 @@ import com.hmdp.utils.SystemConstants;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.concurrent.TimeUnit;
 
@@ -38,12 +39,29 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
             Shop shop = JSONUtil.toBean(shopJson, Shop.class);
             return Result.ok(shop);
         }
+        if (shopJson != null) {
+            return Result.fail("商铺不存在");
+        }
         Shop shop = this.getById(id);
         if (shop == null) {
+            redisTemplate.opsForValue().set(key, "", RedisConstants.CACHE_NULL_TTL, TimeUnit.MINUTES);
             return Result.fail("商铺不存在");
         }
         // 写入redis
         redisTemplate.opsForValue().set(key, JSONUtil.toJsonStr(shop), RedisConstants.CACHE_SHOP_TTL, TimeUnit.MINUTES);
         return Result.ok(shop);
+    }
+
+    @Transactional
+    @Override
+    public Result updateShop(Shop shop) {
+        if (shop.getId() == null) {
+            return Result.fail("商铺不存在");
+        }
+        this.updateById(shop);
+        String key = RedisConstants.CACHE_SHOP_KEY + shop.getId();
+        redisTemplate.delete(key);
+
+        return Result.ok();
     }
 }
