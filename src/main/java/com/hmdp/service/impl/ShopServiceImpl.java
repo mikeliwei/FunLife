@@ -30,8 +30,12 @@ import java.util.concurrent.TimeUnit;
  */
 @Service
 public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IShopService {
-    @Autowired
-    private StringRedisTemplate redisTemplate;
+
+    private final StringRedisTemplate redisTemplate;
+
+    public ShopServiceImpl(StringRedisTemplate redisTemplate) {
+        this.redisTemplate = redisTemplate;
+    }
 
     @Override
     public Result queryShopById(Long id) {
