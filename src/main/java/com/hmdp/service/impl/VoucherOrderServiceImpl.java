@@ -11,7 +11,11 @@ import com.hmdp.service.IVoucherOrderService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hmdp.utils.RedisWorker;
 import com.hmdp.utils.UserHolder;
+import lombok.NonNull;
+import lombok.Synchronized;
+import org.springframework.aop.framework.AopContext;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,9 +35,11 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     private ISeckillVoucherService seckillVoucherService;
     @Autowired
     private RedisWorker redisWorker;
+    @Autowired
+    @Lazy
+    private IVoucherOrderService voucherOrderService;
 
     @Override
-    @Transactional
     public Result seckillVoucher(Long voucherId) {
         SeckillVoucher seckillVoucher = seckillVoucherService.getById(voucherId);
         if (seckillVoucher == null) {
@@ -48,11 +54,26 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         if (seckillVoucher.getStock() <= 0) {
             return Result.fail("券已售罄");
         }
+        Long id = UserHolder.getUser().getId();
+        synchronized (id.toString().intern()) {
+            return voucherOrderService.createVoucherOrder(voucherId);
+        }
+    }
+
+    @Transactional
+    public Result createVoucherOrder(Long voucherId) {
+        Long id = UserHolder.getUser().getId();
+        int count = query().eq("user_id", id).eq("voucher_id", voucherId).count();
+        if (count > 0) {
+            return Result.fail("不能重复购买");
+        }
+
         boolean update = seckillVoucherService.update().setSql("stock = stock - 1").gt("stock", 0).
                 eq("voucher_id", voucherId).update();
         if (!update) {
             return Result.fail("库存不足");
         }
+
         VoucherOrder voucherOrder = new VoucherOrder();
         voucherOrder.setVoucherId(voucherId);
         voucherOrder.setId(redisWorker.nextId("order"));
