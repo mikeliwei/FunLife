@@ -13,6 +13,8 @@ import com.hmdp.utils.RedisWorker;
 import com.hmdp.utils.UserHolder;
 import lombok.NonNull;
 import lombok.Synchronized;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.aop.framework.AopContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
@@ -38,6 +40,8 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     @Autowired
     @Lazy
     private IVoucherOrderService voucherOrderService;
+    @Autowired
+    private RedissonClient redissonClient;
 
     @Override
     public Result seckillVoucher(Long voucherId) {
@@ -55,9 +59,17 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
             return Result.fail("券已售罄");
         }
         Long id = UserHolder.getUser().getId();
-        synchronized (id.toString().intern()) {
-            return voucherOrderService.createVoucherOrder(voucherId);
+        RLock lock = redissonClient.getLock("lock:order:" + id);
+        boolean b = lock.tryLock();
+        if (!b) {
+            return Result.fail("不允许重复购买");
         }
+        try {
+            return voucherOrderService.createVoucherOrder(voucherId);
+        } finally {
+            lock.unlock();
+        }
+
     }
 
     @Transactional
