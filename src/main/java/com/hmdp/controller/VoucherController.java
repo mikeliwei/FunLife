@@ -4,6 +4,9 @@ package com.hmdp.controller;
 import com.hmdp.dto.Result;
 import com.hmdp.entity.Voucher;
 import com.hmdp.service.IVoucherService;
+import com.hmdp.utils.RedisConstants;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
@@ -22,6 +25,8 @@ public class VoucherController {
 
     @Resource
     private IVoucherService voucherService;
+    @Autowired
+    private StringRedisTemplate redisTemplate;
 
     /**
      * 新增普通券
@@ -42,6 +47,7 @@ public class VoucherController {
     @PostMapping("seckill")
     public Result addSeckillVoucher(@RequestBody Voucher voucher) {
         voucherService.addSeckillVoucher(voucher);
+        redisTemplate.opsForValue().set(RedisConstants.SECKILL_STOCK_KEY + voucher.getId(), voucher.getStock().toString());
         return Result.ok(voucher.getId());
     }
 
